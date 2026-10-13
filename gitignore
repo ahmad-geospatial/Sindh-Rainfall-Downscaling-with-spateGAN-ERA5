@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+.env
+*.nc
+*.grib
+*.h5
+*.hdf5
+*.tif
+*.tiff
+*.zip
+.DS_Store
+
+# Private working notes; do not include in the public project repository.
+private_notes/
