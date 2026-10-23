@@ -1,67 +1,143 @@
 # Exploring rainfall downscaling over Sindh
 
-Rainfall products give us useful estimates, but they often smooth out the local and short-lived structure of intense storms. This project asks whether a published generative model can add plausible fine-scale detail to hourly ERA5 rainfall over Sindh, Pakistan, and what we can responsibly learn from the result.
+This project evaluates the pretrained **spateGAN-ERA5** model over Sindh,
+Pakistan. It uses hourly ERA5 precipitation to generate 2 km, 10-minute
+rainfall fields, then compares those estimates with ERA5 and available
+NOAA GHCN-Daily station observations.
 
-The work is a hands-on application of the pretrained **spateGAN-ERA5** model. It is also a learning project: the repository will show how the data are prepared, how the model is run, how comparisons are made, and where the evidence runs out. The generated 2 km, 10-minute fields are model realizations, not measurements of rainfall that was observed at that scale.
+The fine-scale fields are model-generated estimates, not measurements of
+rainfall observed at 2 km or 10-minute resolution. The project is assessing
+whether they add useful information for future flood modeling; the current
+validation does not establish that they are ready for operational use.
 
-## The question
+## Research question
 
-Can the released spateGAN-ERA5 workflow produce useful, physically plausible rainfall detail for Sindh when driven by ERA5, and how do those outputs compare with observations and other precipitation products at scales those datasets can actually support?
-
-We will first reproduce the authors' radar-based example. Then we will try the workflow over Sindh and compare aggregated results with ERA5, NASA IMERG, and any suitable daily rain gauges we can identify.
-
-## What makes this project useful
-
-- It follows a published, reproducible workflow instead of presenting a new model as a discovery.
-- It separates reproducing the original benchmark from applying the model in a new region.
-- It checks comparisons at compatible time and space scales.
-- It documents the practical lessons: data access, units, model setup, compute needs, and the limits of available observations.
+How well does the pretrained spateGAN-ERA5 workflow represent rainfall over
+Sindh, and does its downscaled output improve agreement with available
+rain-gauge observations compared with ERA5?
 
 ## Current status
 
-**Planning and repository setup.** No Sindh model outputs or validation results have been produced yet. The first data task is to inspect NOAA's GHCN-Daily station inventory and see whether any stations in or near Sindh have usable precipitation records for the periods we select.
+- Retrieved and combined the 12 monthly ERA5 files into a 2010 dataset with
+  8,760 hourly records.
+- Ran the pretrained model month by month in Google Colab for a domain
+  centered near 26.5°N, 68.5°E.
+- Repaired and audited the monthly output boundaries. The full-year output
+  contains 52,560 ten-minute timestamps with no missing or infinite
+  precipitation values.
+- Compared ERA5 and spateGAN daily precipitation with 2010 NOAA GHCN-Daily
+  observations at stations inside the model domain.
+- Found no consistent improvement from spateGAN in the station comparisons.
+  Further evaluation is needed before considering these estimates for a
+  flood model.
 
-As work progresses, this section will summarize completed milestones and the most important project findings. Results will be reported only after the corresponding code and comparisons are in the repository.
+## Data and outputs
 
-## How the project will proceed
+The input ERA5 dataset contains hourly convective precipitation (`cp`) and
+large-scale precipitation (`lsp`) over the study region. The pretrained model
+produces precipitation estimates on a 144 × 144 grid with 2 km spacing,
+covering approximately 288 × 288 km. The output has six time steps per hour
+and precipitation units of `mm/h`.
 
-1. Reproduce the published radar example and understand its inputs, outputs, and evaluation.
-2. Choose a study boundary and event period for Sindh.
-3. Check rainfall station coverage and prepare the required ERA5 input data.
-4. Run the released pretrained model and retain its multiple possible rainfall realizations.
-5. Compare at matched scales: aggregate the output for ERA5 and IMERG comparisons, and compare daily totals with eligible gauges.
-6. Summarize what worked, what did not, and what the available evidence supports.
+Raw data, station files, and generated NetCDF outputs are kept outside this
+repository and are not committed to GitHub. The local `data/` directory is
+excluded by `.gitignore`. ERA5 data can be obtained from the Copernicus
+Climate Data Store, and station data from NOAA GHCN-Daily. Users need to
+obtain the required input data and model weights separately.
 
-The full comparison strategy and its limits are described in [Method and evaluation](docs/methodology.md).
+The full-year monthly ERA5 and repaired spateGAN outputs are stored in Google
+Drive under `Sindh_Rainfall_Colab/full_2010/` and
+`Sindh_Rainfall_Colab/full_2010_repaired/`, respectively.
 
-## What the comparisons can tell us
+## Processing and comparison
 
-| Comparison | Useful for | Does not establish |
-|---|---|---|
-| Authors' radar example | Whether our reproduction follows the published evaluation workflow | Accuracy over Sindh |
-| Output aggregated to ERA5 scale | Whether the generated fields remain consistent with the broad input event | Whether the fine-scale pattern is correct |
-| IMERG at matched time and grid scales | How the results compare with another precipitation estimate | Independent ground truth or 2 km accuracy |
-| NOAA GHCN-Daily, if suitable stations exist | Daily rainfall agreement at available station locations | Storm timing, 10-minute intensity, or 2 km rainfall structure |
+The full year was processed in monthly batches in Google Colab. Monthly
+processing and boundary repair used neighboring ERA5 context so that the
+repaired files form a continuous year.
 
-A comparison is only as strong as its observations. In particular, daily gauges cannot verify 10-minute rainfall, and satellite products are estimates rather than ground truth.
+For station validation, the six ten-minute precipitation-rate values in an
+hour were averaged to obtain the hourly rate, then accumulated into daily
+totals using UTC ending-day convention. The final daily period, December 31,
+is excluded because the available files do not include the January 1, 2011
+00:00 UTC hour needed to complete that period.
 
-## Learning path
+A separate same-footprint comparison found that the domain-average hourly
+total matches ERA5 (prediction-to-ERA5 total ratio = 1.000). This is a
+consistency check associated with the model's ERA5 constraint; it is not
+independent evidence that the fine-scale rainfall pattern is accurate.
 
-The repository is intended to be followed in order. Each notebook and script will explain the decisions being made, not just provide code to run.
+## Station validation
 
-- `notebooks/` — guided walkthroughs and exploratory analysis
-- `src/` — reusable data preparation and evaluation code
-- `data/` — local input and derived data; large or restricted files are not committed
-- `docs/methodology.md` — project design and interpretation guide
-- `tests/` — checks for reusable code as it is added
+Five NOAA GHCN-Daily stations were examined. Three lie inside the
+spateGAN domain: Nawabshah, Hyderabad Airport, and Chhor. Shahbaz AB and
+Jinnah International are outside the downscaling domain, so only ERA5 results
+are reported for those stations.
 
-## Limitations to keep in view
+Metrics below use paired daily observations. Bias is model minus station
+rainfall. Wet-day detection uses a threshold of at least 1 mm/day.
+POD is probability of detection; FAR is false-alarm ratio.
 
-The pretrained model was developed using high-resolution radar observations in Germany. That does not establish that it performs equally well in Sindh, where rainfall regimes, terrain, and observation coverage differ. Without local high-resolution observations, we cannot verify the generated 2 km patterns or 10-minute storm structure. Model ensemble spread and data limitations will be reported alongside any results.
+| Station | Product | Paired days | Bias (mm/day) | MAE (mm/day) | RMSE (mm/day) | Correlation | POD | FAR |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| Shahbaz AB | ERA5 | 300 | 0.22 | 1.36 | 6.97 | 0.320 | 0.400 | 0.700 |
+| Nawabshah | ERA5 | 340 | -0.44 | 1.27 | 6.51 | 0.302 | 0.600 | 0.609 |
+| Nawabshah | spateGAN | 340 | -0.31 | 1.42 | 6.78 | 0.298 | 0.600 | 0.640 |
+| Hyderabad Airport | ERA5 | 332 | 0.05 | 1.31 | 6.94 | 0.163 | 0.812 | 0.606 |
+| Hyderabad Airport | spateGAN | 332 | 0.21 | 1.33 | 6.93 | 0.268 | 0.500 | 0.692 |
+| Chhor | ERA5 | 340 | -0.08 | 1.29 | 6.04 | 0.197 | 0.750 | 0.500 |
+| Chhor | spateGAN | 340 | -0.05 | 1.34 | 5.91 | 0.239 | 0.600 | 0.684 |
+| Jinnah International | ERA5 | 346 | -0.49 | 1.20 | 5.74 | 0.630 | 0.550 | 0.645 |
+
+At Hyderabad Airport and Chhor, spateGAN has higher correlation than ERA5.
+However, its MAE is slightly higher at all three in-domain stations, and its
+wet-day detection is weaker at Hyderabad Airport and Chhor. These results do
+not show a consistent station-level improvement.
+
+## Limitations
+
+- The model was pretrained using high-resolution radar observations in
+  Germany. Its performance over Sindh cannot be assumed to be the same.
+- Only three stations fall inside the downscaling domain, and station
+  observations are daily. They cannot verify 10-minute rainfall timing or
+  2 km rainfall structure.
+- The evaluation covers one year and has gaps in station observations.
+- Matching domain-average totals to ERA5 does not validate the location or
+  intensity of downscaled storms.
+- The current station results do not justify using spateGAN rainfall as a
+  flood-model input without further validation.
+
+## Next steps
+
+1. Compare daily CHIRPS estimates with the same station observations using
+   matched dates, locations, and metrics.
+2. Examine major 2010 rainfall events separately, including event totals and
+   timing at available stations.
+3. Assess whether additional independent observations are available for
+   validating storm timing and spatial patterns.
+4. Consider flood-model use only after the rainfall inputs pass suitable
+   hydrologic and event-based validation.
+
+CHIRPS is planned as an additional comparison product. It is not a direct
+replacement input for the pretrained spateGAN-ERA5 workflow, which expects
+hourly ERA5 precipitation inputs.
+
+## Repository layout
+
+- `src/` — scripts for ERA5 preparation, station-data processing, and
+  comparisons.
+- `docs/methodology.md` — project design and evaluation approach.
+- `data/` — local data directory; excluded from GitHub.
+- `notebooks/` — Colab notebooks can be exported here to preserve the
+  interactive analysis workflow.
 
 ## References
 
-- Glawion et al. (2025), [Global spatio-temporal ERA5 precipitation downscaling to km and sub-hourly scale using generative AI](https://doi.org/10.1038/s41612-025-01103-y).
-- Authors' implementation: [LGlawion/spateGAN_ERA5](https://github.com/LGlawion/spateGAN_ERA5). Cite the paper and attribute the code when using it.
-- NOAA NCEI, [Global Historical Climatology Network Daily (GHCN-Daily)](https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily).
+- Glawion et al. (2025), [Global spatio-temporal ERA5 precipitation
+  downscaling to km and sub-hourly scale using generative AI]
+  (https://doi.org/10.1038/s41612-025-01103-y).
+- Authors' implementation: [LGlawion/spateGAN_ERA5]
+  (https://github.com/LGlawion/spateGAN_ERA5). Cite the paper and attribute
+  the code when using it.
+- NOAA NCEI, [Global Historical Climatology Network Daily (GHCN-Daily)]
+  (https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily).
 - NASA GPM, [IMERG product overview](https://gpm.nasa.gov/data/imerg).
